@@ -141,14 +141,6 @@ namespace RDPKeepAlive
             if (verbose)
                 Console.WriteLine($"{DateTime.Now:o} - Found RDP client.\n\t* Window title: {windowTitle}\n\t* Class: {clsName}");
 
-            // Store the original foreground window to restore later
-            var originalForegroundWindow = NativeMethods.GetForegroundWindow();
-            windowTitle.Clear();
-            if (NativeMethods.GetWindowText(originalForegroundWindow, windowTitle, WindowTitleCapacity) != 0 && verbose)
-            {
-                Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {windowTitle}");
-            }
-
             // Find the specific RDP window
             var windowHandle = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, clsName, wndTitle);
             if (windowHandle != IntPtr.Zero)
@@ -170,8 +162,15 @@ namespace RDPKeepAlive
                     return true; // Continue enumeration despite the error
                 }
 
-                input = GetMouseMovement(input, currentPosition);
+                input = GetMouseMovementParams(input, currentPosition);
 
+                // Store the original foreground window to restore later
+                var originalForegroundWindow = NativeMethods.GetForegroundWindow();
+                windowTitle.Clear();
+                if (NativeMethods.GetWindowText(originalForegroundWindow, windowTitle, WindowTitleCapacity) != 0 && verbose)
+                {
+                    Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {windowTitle}");
+                }
                 // Bring the RDP window to the foreground
                 NativeMethods.SetForegroundWindow(windowHandle);
 
@@ -202,7 +201,7 @@ namespace RDPKeepAlive
             return win32Exception != null ? win32Exception.Message : "Unknown Error";
         }
 
-        private static NativeMethods.INPUT GetMouseMovement(NativeMethods.INPUT input, NativeMethods.POINT currentPosition)
+        private static NativeMethods.INPUT GetMouseMovementParams(NativeMethods.INPUT input, NativeMethods.POINT currentPosition)
         {
             // Set mouse movement flags: Absolute positioning and movement
             input.U.mi.dwFlags = NativeMethods.MouseEventFlags.MOVE | NativeMethods.MouseEventFlags.ABSOLUTE;
