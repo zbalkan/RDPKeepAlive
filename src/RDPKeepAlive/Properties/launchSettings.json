@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RDPKeepAlive": {
+      "commandName": "Project",
+      "commandLineArgs": "-v"
+    }
+  }
+}
