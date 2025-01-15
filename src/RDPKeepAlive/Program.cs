@@ -9,20 +9,25 @@ namespace RDPKeepAlive
 {
     internal static class Program
     {
-        private static volatile bool gShouldStop; // Flag to signal termination
-        private static Mutex? gMutex; // Mutex to enforce single instance
+        private const string MutexName = "RDPKeepAliveMutex";
 
         private static readonly string[] rdpClients = [
             "TscShellContainerClass", // MSTSC.EXE
             "WindowsForms10.Window.8.app.0.1d2098a_r8_ad1" // Sysinternals RDCMAN
             ];
 
-        private static bool verbose;
-        private static bool found;
         private static readonly string[] verboseFlags = ["-v", "--verbose", "/v"];
-        private const string MutexName = "RDPKeepAliveMutex"; // Unique mutex name
 
-        private static void Main(string[] args)
+        private static bool found;
+
+        private static Mutex? gMutex;
+
+        private static volatile bool gShouldStop; // Flag to signal termination
+
+        // Mutex to enforce single instance
+        private static bool verbose;
+
+        public static void Main(string[] args)
         {
             if (args.Length > 0 && verboseFlags.Contains(args[0]))
             {
@@ -60,7 +65,7 @@ namespace RDPKeepAlive
                 // Enumerate all top-level windows
                 if (!NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero))
                 {
-                    Console.WriteLine($"ERROR: EnumWindows returned false!");
+                    Console.WriteLine("ERROR: EnumWindows returned false!");
                     Console.WriteLine(GetErrorMessage());
                 }
                 if (!found)
@@ -86,29 +91,19 @@ namespace RDPKeepAlive
             Console.WriteLine("RDPKeepAlive terminated gracefully.");
         }
 
-        private static string GetErrorMessage()
-        {
-            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
-            return win32Exception != null ? win32Exception.Message : "Unknown Error";
-        }
-
-        /// <summary>
-        ///     Thread method that waits for any keypress to signal program termination.
-        /// </summary>
-        private static void Interrupt()
-        {
-            Console.ReadKey(true); // Wait for any keypress without echoing
-            Console.WriteLine("\nExiting...");
-            gShouldStop = true; // Signal main loop to terminate
-        }
-
         /// <summary>
         ///     Callback method invoked by EnumWindows for each top-level window. Identifies RDP
         ///     windows and simulates mouse movement to keep them active.
         /// </summary>
-        /// <param name="hWnd"> Handle to a window. </param>
-        /// <param name="lParam"> Application-defined value. </param>
-        /// <returns> True to continue enumeration; False to stop. </returns>
+        /// <param name="hWnd">
+        ///     Handle to a window.
+        /// </param>
+        /// <param name="lParam">
+        ///     Application-defined value.
+        /// </param>
+        /// <returns>
+        ///     True to continue enumeration; False to stop.
+        /// </returns>
         private static bool EnumRDPWindowsProc(IntPtr hWnd, IntPtr lParam)
         {
             const int ClassNameCapacity = 128;
@@ -179,10 +174,11 @@ namespace RDPKeepAlive
 
                 // Bring the RDP window to the foreground
                 NativeMethods.SetForegroundWindow(windowHandle);
+
                 // Send the mouse movement input
                 if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
                 {
-                    Console.WriteLine($"ERROR: SendInput failed!");
+                    Console.WriteLine("ERROR: SendInput failed!");
                     Console.WriteLine(GetErrorMessage());
                 }
                 else
@@ -190,6 +186,7 @@ namespace RDPKeepAlive
                     if (verbose)
                         Console.WriteLine($"{DateTime.Now:o} - Mouse movement sent successfully.");
                 }
+
                 // Restore the original foreground window
                 NativeMethods.SetForegroundWindow(originalForegroundWindow);
                 if (verbose)
@@ -197,6 +194,12 @@ namespace RDPKeepAlive
             }
 
             return true; // Continue enumeration
+        }
+
+        private static string GetErrorMessage()
+        {
+            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
+            return win32Exception != null ? win32Exception.Message : "Unknown Error";
         }
 
         private static NativeMethods.INPUT GetMouseMovement(NativeMethods.INPUT input, NativeMethods.POINT currentPosition)
@@ -211,6 +214,16 @@ namespace RDPKeepAlive
             input.U.mi.dx = (currentPosition.X * 65535) / screenWidth;
             input.U.mi.dy = (currentPosition.Y * 65535) / screenHeight;
             return input;
+        }
+
+        /// <summary>
+        ///     Thread method that waits for any keypress to signal program termination.
+        /// </summary>
+        private static void Interrupt()
+        {
+            Console.ReadKey(true); // Wait for any keypress without echoing
+            Console.WriteLine("\nExiting...");
+            gShouldStop = true; // Signal main loop to terminate
         }
     }
 }
