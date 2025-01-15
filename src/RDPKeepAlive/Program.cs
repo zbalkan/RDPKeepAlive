@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -59,7 +60,8 @@ namespace RDPKeepAlive
                 // Enumerate all top-level windows
                 if (!NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero))
                 {
-                    Console.WriteLine($"ERROR: EnumWindows returned false! GetLastError: {Marshal.GetLastWin32Error():X}");
+                    Console.WriteLine($"ERROR: EnumWindows returned false!");
+                    Console.WriteLine(GetErrorMessage());
                 }
                 if (!found)
                 {
@@ -82,6 +84,12 @@ namespace RDPKeepAlive
             gMutex.ReleaseMutex();
             gMutex.Dispose();
             Console.WriteLine("RDPKeepAlive terminated gracefully.");
+        }
+
+        private static string GetErrorMessage()
+        {
+            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
+            return win32Exception != null ? win32Exception.Message : "Unknown Error";
         }
 
         /// <summary>
@@ -174,7 +182,8 @@ namespace RDPKeepAlive
                 // Send the mouse movement input
                 if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
                 {
-                    Console.WriteLine($"ERROR: SendInput failed! GetLastError: {Marshal.GetLastWin32Error():X}");
+                    Console.WriteLine($"ERROR: SendInput failed!");
+                    Console.WriteLine(GetErrorMessage());
                 }
                 else
                 {
@@ -183,7 +192,7 @@ namespace RDPKeepAlive
                 }
                 // Restore the original foreground window
                 NativeMethods.SetForegroundWindow(originalForegroundWindow);
-                if(verbose)
+                if (verbose)
                     Console.WriteLine($"{DateTime.Now:o} - Restored original foreground window.");
             }
 
