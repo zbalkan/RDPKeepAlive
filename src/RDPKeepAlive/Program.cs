@@ -8,7 +8,7 @@ namespace RDPKeepAlive
 {
     internal static class Program
     {
-        private static bool gShouldStop; // Flag to signal termination
+        private static volatile bool gShouldStop; // Flag to signal termination
         private static Mutex? gMutex; // Mutex to enforce single instance
 
         private static readonly string[] rdpClients = [
