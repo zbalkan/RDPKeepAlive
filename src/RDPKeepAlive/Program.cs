@@ -9,7 +9,9 @@ namespace RDPKeepAlive
     internal static class Program
     {
         private const int ClassNameCapacity = 128;
+
         private const string MutexName = "RDPKeepAliveMutex";
+
         private const int WindowTitleCapacity = 128;
 
         private static readonly string[] _rdpClients = [
@@ -20,8 +22,11 @@ namespace RDPKeepAlive
         private static readonly string[] _verboseFlags = ["-v", "--verbose", "/v"];
 
         private static bool _found;
+
         private static string _rdpClientClassName = string.Empty;
+
         private static string _rdpClientWindowTitle = string.Empty;
+
         private static bool _verbose;
 
         public static void Main(string[] args)
@@ -55,6 +60,7 @@ namespace RDPKeepAlive
             {
                 // This value is set every 60 seconds.
                 var previousValue = false;
+
                 // Check for RDP client windows every second
                 for (var i = 0; i < 60; i++)
                 {
@@ -98,9 +104,15 @@ namespace RDPKeepAlive
         ///     Callback method invoked by EnumWindows for each top-level window. Identifies RDP
         ///     windows and simulates mouse movement to keep them active.
         /// </summary>
-        /// <param name="hWnd"> Handle to a window. </param>
-        /// <param name="lParam"> Application-defined value. </param>
-        /// <returns> True to continue enumeration; False to stop. </returns>
+        /// <param name="hWnd">
+        ///     Handle to a window.
+        /// </param>
+        /// <param name="lParam">
+        ///     Application-defined value.
+        /// </param>
+        /// <returns>
+        ///     True to continue enumeration; False to stop.
+        /// </returns>
         private static bool EnumRDPWindowsProc(IntPtr hWnd, IntPtr lParam)
         {
             // Initialize StringBuilders for class name and window title
@@ -150,6 +162,7 @@ namespace RDPKeepAlive
             e.Cancel = true; // Prevent immediate termination
             ExitGracefully();
         }
+
         private static void SimulateMouseMovement()
         {
             // Find the specific RDP window
@@ -175,6 +188,7 @@ namespace RDPKeepAlive
                 {
                     Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {originalWindowTitle}");
                 }
+
                 // Bring the RDP window to the foreground
                 NativeMethods.SetForegroundWindow(windowHandle);
             }
@@ -199,6 +213,7 @@ namespace RDPKeepAlive
                     Console.WriteLine($"{DateTime.Now:o} - Restored original foreground window.");
             }
         }
+
         private static bool TryGetMouseMovementParams(out NativeMethods.INPUT inputParams)
         {
             // Prepare INPUT structure for mouse movement
