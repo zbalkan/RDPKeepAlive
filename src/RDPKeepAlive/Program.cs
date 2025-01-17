@@ -11,27 +11,33 @@ namespace RDPKeepAlive
     {
         private const string MutexName = "RDPKeepAliveMutex";
 
-        private static readonly string[] rdpClients = [
+        private static readonly string[] _rdpClients = [
             "TscShellContainerClass", // MSTSC.EXE
             "WindowsForms10.Window.8.app.0.1d2098a_r8_ad1" // Sysinternals RDCMAN
             ];
 
-        private static readonly string[] verboseFlags = ["-v", "--verbose", "/v"];
+        private static readonly string[] _verboseFlags = ["-v", "--verbose", "/v"];
 
-        private static bool found;
+        private static bool _found;
 
-        private static Mutex? gMutex;
+        private static Mutex? _mutex;
 
-        private static volatile bool gShouldStop; // Flag to signal termination
+        private static volatile bool _shouldStop;
 
-        // Mutex to enforce single instance
-        private static bool verbose;
+        private static bool _verbose;
+
+        private const int ClassNameCapacity = 128;
+        private const int WindowTitleCapacity = 128;
+
+        private static string _rdpClientClassName = string.Empty;
+
+        private static string _rdpClientWindowTitle = string.Empty;
 
         public static void Main(string[] args)
         {
-            if (args.Length > 0 && verboseFlags.Contains(args[0]))
+            if (args.Length > 0 && _verboseFlags.Contains(args[0]))
             {
-                verbose = true;
+                _verbose = true;
             }
 
             // Ensure console can display Unicode characters
@@ -43,7 +49,7 @@ namespace RDPKeepAlive
             Console.WriteLine("Press any key to stop...\n");
 
             // Single Instance Enforcement
-            gMutex = new Mutex(true, MutexName, out bool createdNew);
+            _mutex = new Mutex(true, MutexName, out bool createdNew);
             if (!createdNew)
             {
                 Console.WriteLine("An instance of RDPKeepAlive is already running.");
@@ -59,56 +65,69 @@ namespace RDPKeepAlive
             };
             interruptThread.Start();
 
-            // Main Loop: Enumerate windows and simulate activity
-            while (!gShouldStop)
+            // Main Loop: Enumerate windows and simulate activity Loop is terminated by the
+            // interrupt thread The for loop inside provides the near-60-second cycles
+            while (!_shouldStop)
             {
-                // Enumerate all top-level windows
-                if (!NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero))
-                {
-                    Console.WriteLine("ERROR: EnumWindows returned false!");
-                    Console.WriteLine(GetErrorMessage());
-                }
-                if (!found)
-                {
-                    Console.WriteLine("No RDP client found. Exiting...");
-                    break;
-                }
-
-                found = false; // Reset flag for next cycle
-
-                // Wait for 60 seconds, checking every second if termination was requested
+                // This value is set every 60 seconds.
+                var previousValue = false;
+                // Check for RDP client windows every second
                 for (var i = 0; i < 60; i++)
                 {
-                    if (gShouldStop)
+                    if (_shouldStop)
                         break;
+
+                    CheckRDPClientExistence();
+
+                    if (!_found)
+                    {
+                        Console.WriteLine("No RDP client found. Exiting...");
+                        _shouldStop = true;
+                        break;
+                    }
+
+                    if (previousValue)
+                    { // we already printed once we have found. Do nothing.
+                    }
+                    else
+                    {
+                        previousValue = _found;
+                        if (_verbose)
+                            Console.WriteLine($"{DateTime.Now:o} - Found RDP client.\n\t* Window title: {_rdpClientWindowTitle}\n\t* Class: {_rdpClientClassName}");
+
+                        // Perform mouse movement simulation if RDP client exists
+                        SimulateMouseMovement();
+                    }
+
                     Thread.Sleep(1000); // Sleep for 1 second
                 }
             }
 
             // Cleanup: Release and dispose the mutex
-            gMutex.ReleaseMutex();
-            gMutex.Dispose();
+            _mutex.ReleaseMutex();
+            _mutex.Dispose();
             Console.WriteLine("RDPKeepAlive terminated gracefully.");
+        }
+
+        private static void CheckRDPClientExistence()
+        {
+            _found = false; // Reset the flag
+            if (!NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero))
+            {
+                Console.WriteLine("ERROR: EnumWindows returned false!");
+                Console.WriteLine(GetErrorMessage());
+            }
         }
 
         /// <summary>
         ///     Callback method invoked by EnumWindows for each top-level window. Identifies RDP
         ///     windows and simulates mouse movement to keep them active.
         /// </summary>
-        /// <param name="hWnd">
-        ///     Handle to a window.
-        /// </param>
-        /// <param name="lParam">
-        ///     Application-defined value.
-        /// </param>
-        /// <returns>
-        ///     True to continue enumeration; False to stop.
-        /// </returns>
+        /// <param name="hWnd"> Handle to a window. </param>
+        /// <param name="lParam"> Application-defined value. </param>
+        /// <returns> True to continue enumeration; False to stop. </returns>
         private static bool EnumRDPWindowsProc(IntPtr hWnd, IntPtr lParam)
         {
-            const int ClassNameCapacity = 128;
-            const int WindowTitleCapacity = 128;
-
             // Initialize StringBuilders for class name and window title
             var className = new StringBuilder(ClassNameCapacity);
             var windowTitle = new StringBuilder(WindowTitleCapacity);
@@ -129,20 +148,25 @@ namespace RDPKeepAlive
 
             // Handle empty class name or window title
             var clsName = className.Length > 0 ? className.ToString() : "[NoClass]";
-            var wndTitle = windowTitle.Length > 0 ? windowTitle.ToString() : "[NoTitle]";
 
-            if (!rdpClients.Contains(clsName))
+            if (_rdpClients.Contains(clsName))
+            {
+                _found = true;
+                _rdpClientClassName = clsName;
+                _rdpClientWindowTitle = windowTitle.Length > 0 ? windowTitle.ToString() : "[NoTitle]";
+                Debug.WriteLine("Found the RDP client!");
+            }
+            else
             {
                 Debug.WriteLine("Not one of the known clients. Skipping...");
-                return true; // Continue enumeration
             }
+            return true; // Continue enumeration
+        }
 
-            found = true;
-            if (verbose)
-                Console.WriteLine($"{DateTime.Now:o} - Found RDP client.\n\t* Window title: {windowTitle}\n\t* Class: {clsName}");
-
+        private static void SimulateMouseMovement()
+        {
             // Find the specific RDP window
-            var windowHandle = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, clsName, wndTitle);
+            var windowHandle = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, _rdpClientClassName, _rdpClientWindowTitle);
             if (windowHandle != IntPtr.Zero)
             {
                 // Prepare INPUT structure for mouse movement
@@ -159,17 +183,17 @@ namespace RDPKeepAlive
                 if (!NativeMethods.GetCursorPos(out NativeMethods.POINT currentPosition))
                 {
                     Console.WriteLine("ERROR: GetCursorPos failed!");
-                    return true; // Continue enumeration despite the error
+                    return; // Continue enumeration despite the error
                 }
 
                 input = GetMouseMovementParams(input, currentPosition);
 
                 // Store the original foreground window to restore later
                 var originalForegroundWindow = NativeMethods.GetForegroundWindow();
-                windowTitle.Clear();
-                if (NativeMethods.GetWindowText(originalForegroundWindow, windowTitle, WindowTitleCapacity) != 0 && verbose)
+                var originalWindowTitle = new StringBuilder(WindowTitleCapacity);
+                if (NativeMethods.GetWindowText(originalForegroundWindow, originalWindowTitle, WindowTitleCapacity) != 0 && _verbose)
                 {
-                    Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {windowTitle}");
+                    Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {originalWindowTitle}");
                 }
                 // Bring the RDP window to the foreground
                 NativeMethods.SetForegroundWindow(windowHandle);
@@ -182,17 +206,15 @@ namespace RDPKeepAlive
                 }
                 else
                 {
-                    if (verbose)
+                    if (_verbose)
                         Console.WriteLine($"{DateTime.Now:o} - Mouse movement sent successfully.");
                 }
 
                 // Restore the original foreground window
                 NativeMethods.SetForegroundWindow(originalForegroundWindow);
-                if (verbose)
+                if (_verbose)
                     Console.WriteLine($"{DateTime.Now:o} - Restored original foreground window.");
             }
-
-            return true; // Continue enumeration
         }
 
         private static string GetErrorMessage()
@@ -222,7 +244,7 @@ namespace RDPKeepAlive
         {
             Console.ReadKey(true); // Wait for any keypress without echoing
             Console.WriteLine("\nExiting...");
-            gShouldStop = true; // Signal main loop to terminate
+            _shouldStop = true; // Signal main loop to terminate
         }
     }
 }
