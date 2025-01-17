@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -135,14 +134,12 @@ namespace RDPKeepAlive
             // Retrieve the class name of the window
             if (NativeMethods.GetClassName(hWnd, className, ClassNameCapacity) == 0)
             {
-                Debug.WriteLine("ERROR: GetClassName failed!");
                 return false; // Stop enumeration on error
             }
 
             // Retrieve the window title
             if (NativeMethods.GetWindowText(hWnd, windowTitle, WindowTitleCapacity) == 0)
             {
-                Debug.WriteLine("No window title. Skipping...");
                 return true;
             }
 
@@ -154,12 +151,8 @@ namespace RDPKeepAlive
                 _found = true;
                 _rdpClientClassName = clsName;
                 _rdpClientWindowTitle = windowTitle.Length > 0 ? windowTitle.ToString() : "[NoTitle]";
-                Debug.WriteLine("Found the RDP client!");
             }
-            else
-            {
-                Debug.WriteLine("Not one of the known clients. Skipping...");
-            }
+
             return true; // Continue enumeration
         }
 
@@ -169,34 +162,26 @@ namespace RDPKeepAlive
             var windowHandle = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, _rdpClientClassName, _rdpClientWindowTitle);
             if (windowHandle != IntPtr.Zero)
             {
-                // Prepare INPUT structure for mouse movement
-                var input = new NativeMethods.INPUT
+                if(!TryGetMouseMovementParams(out var input))
                 {
-                    type = NativeMethods.InputType.INPUT_MOUSE,
-                    U = new NativeMethods.InputUnion
-                    {
-                        mi = new NativeMethods.MOUSEINPUT()
-                    }
-                };
-
-                // Get current cursor position
-                if (!NativeMethods.GetCursorPos(out NativeMethods.POINT currentPosition))
-                {
-                    Console.WriteLine("ERROR: GetCursorPos failed!");
-                    return; // Continue enumeration despite the error
+                    Console.WriteLine("ERROR: TryGetMouseMovementParams returned false!");
+                    Console.WriteLine(GetErrorMessage());
+                    return;
                 }
-
-                input = GetMouseMovementParams(input, currentPosition);
 
                 // Store the original foreground window to restore later
                 var originalForegroundWindow = NativeMethods.GetForegroundWindow();
-                var originalWindowTitle = new StringBuilder(WindowTitleCapacity);
-                if (NativeMethods.GetWindowText(originalForegroundWindow, originalWindowTitle, WindowTitleCapacity) != 0 && _verbose)
+                var clientIsNotTopmost = originalForegroundWindow != windowHandle;
+                if (clientIsNotTopmost)
                 {
-                    Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {originalWindowTitle}");
+                    var originalWindowTitle = new StringBuilder(WindowTitleCapacity);
+                    if (NativeMethods.GetWindowText(originalForegroundWindow, originalWindowTitle, WindowTitleCapacity) != 0 && _verbose)
+                    {
+                        Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {originalWindowTitle}");
+                    }
+                    // Bring the RDP window to the foreground
+                    NativeMethods.SetForegroundWindow(windowHandle);
                 }
-                // Bring the RDP window to the foreground
-                NativeMethods.SetForegroundWindow(windowHandle);
 
                 // Send the mouse movement input
                 if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
@@ -210,10 +195,13 @@ namespace RDPKeepAlive
                         Console.WriteLine($"{DateTime.Now:o} - Mouse movement sent successfully.");
                 }
 
-                // Restore the original foreground window
-                NativeMethods.SetForegroundWindow(originalForegroundWindow);
-                if (_verbose)
-                    Console.WriteLine($"{DateTime.Now:o} - Restored original foreground window.");
+                if (clientIsNotTopmost)
+                {
+                    // Restore the original foreground window
+                    NativeMethods.SetForegroundWindow(originalForegroundWindow);
+                    if (_verbose)
+                        Console.WriteLine($"{DateTime.Now:o} - Restored original foreground window.");
+                }
             }
         }
 
@@ -223,18 +211,34 @@ namespace RDPKeepAlive
             return win32Exception != null ? win32Exception.Message : "Unknown Error";
         }
 
-        private static NativeMethods.INPUT GetMouseMovementParams(NativeMethods.INPUT input, NativeMethods.POINT currentPosition)
+        private static bool TryGetMouseMovementParams(out NativeMethods.INPUT inputParams)
         {
+            // Prepare INPUT structure for mouse movement
+            inputParams = new NativeMethods.INPUT
+            {
+                type = NativeMethods.InputType.INPUT_MOUSE,
+                U = new NativeMethods.InputUnion
+                {
+                    mi = new NativeMethods.MOUSEINPUT()
+                }
+            };
+
+            // Get current cursor position
+            if (!NativeMethods.GetCursorPos(out var currentPosition))
+            {
+                return false; // Continue enumeration despite the error
+            }
+
             // Set mouse movement flags: Absolute positioning and movement
-            input.U.mi.dwFlags = NativeMethods.MouseEventFlags.MOVE | NativeMethods.MouseEventFlags.ABSOLUTE;
+            inputParams.U.mi.dwFlags = NativeMethods.MouseEventFlags.MOVE | NativeMethods.MouseEventFlags.ABSOLUTE;
 
             // Calculate normalized absolute coordinates (0 to 65535)
             var screenWidth = NativeMethods.GetSystemMetrics(NativeMethods.SystemMetric.SM_CXSCREEN);
             var screenHeight = NativeMethods.GetSystemMetrics(NativeMethods.SystemMetric.SM_CYSCREEN);
 
-            input.U.mi.dx = (currentPosition.X * 65535) / screenWidth;
-            input.U.mi.dy = (currentPosition.Y * 65535) / screenHeight;
-            return input;
+            inputParams.U.mi.dx = (currentPosition.X * 65535) / screenWidth;
+            inputParams.U.mi.dy = (currentPosition.Y * 65535) / screenHeight;
+            return true;
         }
 
         /// <summary>
