@@ -47,15 +47,7 @@ namespace RDPKeepAlive
             Console.WriteLine("Simulating RDP activity.");
             Console.WriteLine("Press any key to stop...\n");
 
-            // Single Instance Enforcement
-            _mutex = new Mutex(true, MutexName, out bool createdNew);
-            if (!createdNew)
-            {
-                Console.WriteLine("An instance of RDPKeepAlive is already running.");
-                Console.WriteLine("Press any key to exit...");
-                Console.ReadKey(true);
-                return;
-            }
+            EnsureSingleInstance();
 
             // Start Interrupt Thread to listen for keypress
             var interruptThread = new Thread(new ThreadStart(Interrupt))
@@ -103,9 +95,25 @@ namespace RDPKeepAlive
             }
 
             // Cleanup: Release and dispose the mutex
-            _mutex.ReleaseMutex();
-            _mutex.Dispose();
+            Cleanup();
+        }
+
+        private static void Cleanup()
+        {
+            _mutex!.ReleaseMutex();
+            _mutex!.Dispose();
             Console.WriteLine("RDPKeepAlive terminated gracefully.");
+        }
+
+        private static void EnsureSingleInstance()
+        {
+            _mutex = new Mutex(true, MutexName, out bool createdNew);
+            if (!createdNew)
+            {
+                Console.WriteLine("An instance of RDPKeepAlive is already running.");
+                Cleanup();
+                Environment.Exit(0);
+            }
         }
 
         private static void CheckRDPClientExistence()
@@ -162,7 +170,7 @@ namespace RDPKeepAlive
             var windowHandle = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, _rdpClientClassName, _rdpClientWindowTitle);
             if (windowHandle != IntPtr.Zero)
             {
-                if(!TryGetMouseMovementParams(out var input))
+                if (!TryGetMouseMovementParams(out var input))
                 {
                     Console.WriteLine("ERROR: TryGetMouseMovementParams returned false!");
                     Console.WriteLine(GetErrorMessage());
