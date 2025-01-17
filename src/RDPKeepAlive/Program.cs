@@ -20,14 +20,19 @@ namespace RDPKeepAlive
         private static readonly string[] _verboseFlags = ["-v", "--verbose", "/v"];
 
         private static bool _found;
-
-        private static Mutex? _mutex;
-
         private static string _rdpClientClassName = string.Empty;
         private static string _rdpClientWindowTitle = string.Empty;
         private static bool _verbose;
+
         public static void Main(string[] args)
         {
+            using Mutex mutex = new Mutex(false, MutexName);
+            if (!mutex.WaitOne(0))
+            {
+                Console.WriteLine("2nd instance");
+                ExitGracefully();
+            }
+
             if (args.Length > 0 && _verboseFlags.Contains(args[0]))
             {
                 _verbose = true;
@@ -40,8 +45,6 @@ namespace RDPKeepAlive
             Console.WriteLine("RDPKeepAlive - Zafer Balkan, (c) 2025");
             Console.WriteLine("Simulating RDP activity.");
             Console.WriteLine("Press CTRL+C to stop...\n");
-
-            EnsureSingleInstance();
 
             // Subscribe to Ctrl+C handling
             Console.CancelKeyPress += OnCancelKeyPress;
@@ -91,16 +94,6 @@ namespace RDPKeepAlive
             }
         }
 
-        private static void EnsureSingleInstance()
-        {
-            _mutex = new Mutex(true, MutexName, out bool createdNew);
-            if (!createdNew)
-            {
-                Console.WriteLine("An instance of RDPKeepAlive is already running.");
-                ExitGracefully();
-            }
-        }
-
         /// <summary>
         ///     Callback method invoked by EnumWindows for each top-level window. Identifies RDP
         ///     windows and simulates mouse movement to keep them active.
@@ -141,16 +134,9 @@ namespace RDPKeepAlive
 
         private static void ExitGracefully()
         {
-            try
-            {
-                _mutex?.ReleaseMutex();
-                _mutex?.Dispose();
-            }
-            finally
-            {
-                Console.WriteLine("RDPKeepAlive terminated gracefully.");
-                Environment.Exit(0);
-            }
+            // Add cleanup code here when needed
+            Console.WriteLine("RDPKeepAlive terminated gracefully.");
+            Environment.Exit(0);
         }
 
         private static string GetErrorMessage()
