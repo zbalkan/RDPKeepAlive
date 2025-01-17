@@ -16,13 +16,25 @@ namespace RDPKeepAlive
             "WindowsForms10.Window.8.app.0.1d2098a_r8_ad1" // Sysinternals RDCMAN
             ];
 
+        private static bool _clientIsNotTopmost;
+
         private static bool _found;
+
+        private static IntPtr _originalForegroundWindow;
 
         private static string _rdpClientClassName = string.Empty;
 
         private static string _rdpClientWindowTitle = string.Empty;
 
-        internal static bool CheckRDPClientExistence(out string className, out string windowTitle)
+        private static IntPtr _windowInFront;
+
+        /// <summary>
+        /// Finds the RDP client window by enumerating all top-level windows.
+        /// </summary>
+        /// <param name="className">The class name of the found RDP client window.</param>
+        /// <param name="windowTitle">The window title of the found RDP client window.</param>
+        /// <returns>True if an RDP client window is found; otherwise, false.</returns>
+        internal static bool FindRDPClientWindow(out string className, out string windowTitle)
         {
             _found = false; // Reset the flag
             _ = NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero);
@@ -33,7 +45,13 @@ namespace RDPKeepAlive
             return _found;
         }
 
-        internal static void SimulateMouseMovement()
+        /// <summary>
+        /// Executes the keep-alive process for the RDP client window.
+        /// This method finds the specific RDP window, prepares mouse movement parameters,
+        /// takes a snapshot of the current window state, processes the mouse movement to keep the RDP session active,
+        /// and then restores the original window state.
+        /// </summary>
+        internal static void Execute()
         {
             // Find the specific RDP window
             var clientWindow = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, _rdpClientClassName, _rdpClientWindowTitle);
@@ -49,44 +67,11 @@ namespace RDPKeepAlive
                 return;
             }
 
-            // Store the original foreground window to restore later
-            var originalForegroundWindow = NativeMethods.GetForegroundWindow();
+            TakeSnapshot(clientWindow);
 
-            var clientIsNotTopmost = originalForegroundWindow != clientWindow;
+            ProcessMouseMovement(clientWindow, input);
 
-            IntPtr windowInFront = IntPtr.Zero;
-            if (clientIsNotTopmost)
-            {
-                _ = NativeMethods.GetWindowThreadProcessId(clientWindow, out var pidClient);
-
-                // Get the window in front of the RDP client
-                windowInFront = GetWindowInFront(clientWindow, pidClient);
-
-                // Bring the RDP window to the foreground
-                NativeMethods.SetForegroundWindow(clientWindow);
-            }
-
-            // Send the mouse movement input
-            if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
-            {
-                Console.WriteLine("ERROR: SendInput failed!");
-                Console.WriteLine(GetErrorMessage());
-            }
-
-            if (clientIsNotTopmost)
-            {
-                // Put RDP client into previous place
-                NativeMethods.SetWindowPos(
-                   clientWindow,
-                   windowInFront,
-                   0, 0, 0, 0,
-                   NativeMethods.SetWindowPosFlags.NoMove |
-                   NativeMethods.SetWindowPosFlags.NoSize |
-                   NativeMethods.SetWindowPosFlags.NoActivate);
-
-                // Restore the original foreground window
-                NativeMethods.SetForegroundWindow(originalForegroundWindow);
-            }
+            RestoreSnapshot(clientWindow);
         }
 
         /// <summary>
@@ -115,6 +100,12 @@ namespace RDPKeepAlive
             return true;
         }
 
+        private static string GetErrorMessage()
+        {
+            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
+            return win32Exception != null ? win32Exception.Message : "Unknown Error";
+        }
+
         private static IntPtr GetWindowInFront(nint clientWindow, uint pidClient)
         {
             uint pidNext = 0;
@@ -128,10 +119,57 @@ namespace RDPKeepAlive
             return next;
         }
 
-        private static string GetErrorMessage()
+        private static void ProcessMouseMovement(nint clientWindow, NativeMethods.INPUT input)
         {
-            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
-            return win32Exception != null ? win32Exception.Message : "Unknown Error";
+            if (_clientIsNotTopmost)
+            {
+                // Bring the RDP window to the foreground
+                NativeMethods.SetForegroundWindow(clientWindow);
+            }
+
+            // Send the mouse movement input
+            if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
+            {
+                Console.WriteLine("ERROR: SendInput failed!");
+                Console.WriteLine(GetErrorMessage());
+            }
+        }
+
+        private static void RestoreSnapshot(nint clientWindow)
+        {
+            if (!_clientIsNotTopmost)
+            {
+                return;
+            }
+
+            // Restore the original foreground window
+            NativeMethods.SetForegroundWindow(_originalForegroundWindow);
+
+            // Put RDP client into previous place
+            NativeMethods.SetWindowPos(
+               clientWindow,
+               _windowInFront,
+               0, 0, 0, 0,
+               NativeMethods.SetWindowPosFlags.NoMove |
+               NativeMethods.SetWindowPosFlags.NoSize |
+               NativeMethods.SetWindowPosFlags.NoActivate);
+        }
+
+        private static void TakeSnapshot(nint clientWindow)
+        {
+            // Store the original foreground window to restore later
+            _originalForegroundWindow = NativeMethods.GetForegroundWindow();
+
+            _clientIsNotTopmost = _originalForegroundWindow != clientWindow;
+
+            if (!_clientIsNotTopmost)
+            {
+                return;
+            }
+            _ = NativeMethods.GetWindowThreadProcessId(clientWindow, out var pidClient);
+
+            // Get the window in front of the RDP client
+            _windowInFront = GetWindowInFront(clientWindow, pidClient);
         }
 
         private static bool TryGetMouseMovementParams(out NativeMethods.INPUT inputParams)
