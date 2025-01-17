@@ -8,7 +8,9 @@ namespace RDPKeepAlive
 {
     internal static class Program
     {
+        private const int ClassNameCapacity = 128;
         private const string MutexName = "RDPKeepAliveMutex";
+        private const int WindowTitleCapacity = 128;
 
         private static readonly string[] _rdpClients = [
             "TscShellContainerClass", // MSTSC.EXE
@@ -21,17 +23,9 @@ namespace RDPKeepAlive
 
         private static Mutex? _mutex;
 
-        private static volatile bool _shouldStop;
-
-        private static bool _verbose;
-
-        private const int ClassNameCapacity = 128;
-        private const int WindowTitleCapacity = 128;
-
         private static string _rdpClientClassName = string.Empty;
-
         private static string _rdpClientWindowTitle = string.Empty;
-
+        private static bool _verbose;
         public static void Main(string[] args)
         {
             if (args.Length > 0 && _verboseFlags.Contains(args[0]))
@@ -45,35 +39,27 @@ namespace RDPKeepAlive
             // Display startup messages
             Console.WriteLine("RDPKeepAlive - Zafer Balkan, (c) 2025");
             Console.WriteLine("Simulating RDP activity.");
-            Console.WriteLine("Press any key to stop...\n");
+            Console.WriteLine("Press CTRL+C to stop...\n");
 
             EnsureSingleInstance();
 
-            // Start Interrupt Thread to listen for keypress
-            var interruptThread = new Thread(new ThreadStart(Interrupt))
-            {
-                IsBackground = true // Ensures thread doesn't prevent application exit
-            };
-            interruptThread.Start();
+            // Subscribe to Ctrl+C handling
+            Console.CancelKeyPress += OnCancelKeyPress;
 
             // Main Loop: Enumerate windows and simulate activity Loop is terminated by the
             // interrupt thread The for loop inside provides the near-60-second cycles
-            while (!_shouldStop)
+            while (true)
             {
                 // This value is set every 60 seconds.
                 var previousValue = false;
                 // Check for RDP client windows every second
                 for (var i = 0; i < 60; i++)
                 {
-                    if (_shouldStop)
-                        break;
-
                     CheckRDPClientExistence();
 
                     if (!_found)
                     {
                         Console.WriteLine("No RDP client found. Exiting...");
-                        _shouldStop = true;
                         break;
                     }
 
@@ -93,27 +79,6 @@ namespace RDPKeepAlive
                     Thread.Sleep(1000); // Sleep for 1 second
                 }
             }
-
-            // Cleanup: Release and dispose the mutex
-            Cleanup();
-        }
-
-        private static void Cleanup()
-        {
-            _mutex!.ReleaseMutex();
-            _mutex!.Dispose();
-            Console.WriteLine("RDPKeepAlive terminated gracefully.");
-        }
-
-        private static void EnsureSingleInstance()
-        {
-            _mutex = new Mutex(true, MutexName, out bool createdNew);
-            if (!createdNew)
-            {
-                Console.WriteLine("An instance of RDPKeepAlive is already running.");
-                Cleanup();
-                Environment.Exit(0);
-            }
         }
 
         private static void CheckRDPClientExistence()
@@ -123,6 +88,16 @@ namespace RDPKeepAlive
             {
                 Console.WriteLine("ERROR: EnumWindows returned false!");
                 Console.WriteLine(GetErrorMessage());
+            }
+        }
+
+        private static void EnsureSingleInstance()
+        {
+            _mutex = new Mutex(true, MutexName, out bool createdNew);
+            if (!createdNew)
+            {
+                Console.WriteLine("An instance of RDPKeepAlive is already running.");
+                ExitGracefully();
             }
         }
 
@@ -164,6 +139,31 @@ namespace RDPKeepAlive
             return true; // Continue enumeration
         }
 
+        private static void ExitGracefully()
+        {
+            try
+            {
+                _mutex?.ReleaseMutex();
+                _mutex?.Dispose();
+            }
+            finally
+            {
+                Console.WriteLine("RDPKeepAlive terminated gracefully.");
+                Environment.Exit(0);
+            }
+        }
+
+        private static string GetErrorMessage()
+        {
+            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
+            return win32Exception != null ? win32Exception.Message : "Unknown Error";
+        }
+
+        private static void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+        {
+            e.Cancel = true; // Prevent immediate termination
+            ExitGracefully();
+        }
         private static void SimulateMouseMovement()
         {
             // Find the specific RDP window
@@ -212,13 +212,6 @@ namespace RDPKeepAlive
                 }
             }
         }
-
-        private static string GetErrorMessage()
-        {
-            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
-            return win32Exception != null ? win32Exception.Message : "Unknown Error";
-        }
-
         private static bool TryGetMouseMovementParams(out NativeMethods.INPUT inputParams)
         {
             // Prepare INPUT structure for mouse movement
@@ -247,16 +240,6 @@ namespace RDPKeepAlive
             inputParams.U.mi.dx = (currentPosition.X * 65535) / screenWidth;
             inputParams.U.mi.dy = (currentPosition.Y * 65535) / screenHeight;
             return true;
-        }
-
-        /// <summary>
-        ///     Thread method that waits for any keypress to signal program termination.
-        /// </summary>
-        private static void Interrupt()
-        {
-            Console.ReadKey(true); // Wait for any keypress without echoing
-            Console.WriteLine("\nExiting...");
-            _shouldStop = true; // Signal main loop to terminate
         }
     }
 }
