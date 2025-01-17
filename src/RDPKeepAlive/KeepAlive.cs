@@ -64,9 +64,7 @@ namespace RDPKeepAlive
 
             if (!TryGetMouseMovementParams(out var input))
             {
-                Console.WriteLine("ERROR: TryGetMouseMovementParams returned false!");
-                Console.WriteLine(GetErrorMessage());
-                return;
+                throw new KeepAliveException("Failed to get mouse movement parameters.", new Win32Exception(Marshal.GetLastWin32Error()));
             }
 
             TakeSnapshot(clientWindow);
@@ -102,12 +100,6 @@ namespace RDPKeepAlive
             return true;
         }
 
-        private static string GetErrorMessage()
-        {
-            var win32Exception = new Win32Exception(Marshal.GetLastWin32Error());
-            return win32Exception != null ? win32Exception.Message : "Unknown Error";
-        }
-
         private static IntPtr GetWindowInFront(nint clientWindow, uint pidClient)
         {
             uint pidNext = 0;
@@ -132,8 +124,7 @@ namespace RDPKeepAlive
             // Send the mouse movement input
             if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
             {
-                Console.WriteLine("ERROR: SendInput failed!");
-                Console.WriteLine(GetErrorMessage());
+                throw new KeepAliveException("Failed to send mouse movement input.", new Win32Exception(Marshal.GetLastWin32Error()));
             }
         }
 
