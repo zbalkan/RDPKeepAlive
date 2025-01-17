@@ -125,19 +125,22 @@ namespace RDPKeepAlive
                 return false; // Stop enumeration on error
             }
 
+            // Ignore if there is no class name
+            if (className.Length == 0)
+            {
+                return true;
+            }
+
             // Retrieve the window title
             if (NativeMethods.GetWindowText(hWnd, windowTitle, WindowTitleCapacity) == 0)
             {
                 return true;
             }
 
-            // Handle empty class name or window title
-            var clsName = className.Length > 0 ? className.ToString() : "[NoClass]";
-
-            if (_rdpClients.Contains(clsName))
+            if (_rdpClients.Contains(className.ToString()))
             {
                 _found = true;
-                _rdpClientClassName = clsName;
+                _rdpClientClassName = className.ToString();
                 _rdpClientWindowTitle = windowTitle.Length > 0 ? windowTitle.ToString() : "[NoTitle]";
             }
 
