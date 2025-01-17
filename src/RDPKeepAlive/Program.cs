@@ -47,9 +47,9 @@ namespace RDPKeepAlive
                 // Check for RDP client windows every second
                 for (var i = 0; i < 60; i++)
                 {
-                    var result = KeepAlive.FindRDPClientWindow(out var className, out var windowTitle);
+                    var isFound = KeepAlive.TryGetRDPClient(out var client);
 
-                    if (!result)
+                    if (!isFound)
                     {
                         Console.WriteLine("No RDP client found. Exiting...");
                         ExitGracefully();
@@ -60,9 +60,9 @@ namespace RDPKeepAlive
                     }
                     else
                     {
-                        previousValue = result;
+                        previousValue = isFound;
                         if (_verbose)
-                            Console.WriteLine($"{DateTime.Now:o} - Found RDP client.\n\t* Window: {windowTitle}\n\t* Class : {className}");
+                            Console.WriteLine($"{DateTime.Now:o} - Found RDP client.\n\t* Window: {client.WindowTitle}\n\t* Class : {client.ClassName}");
 
                         // Perform mouse movement simulation if RDP client exists
                         KeepAlive.Execute();

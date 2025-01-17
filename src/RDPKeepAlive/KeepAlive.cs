@@ -31,16 +31,18 @@ namespace RDPKeepAlive
         /// <summary>
         /// Finds the RDP client window by enumerating all top-level windows.
         /// </summary>
-        /// <param name="className">The class name of the found RDP client window.</param>
-        /// <param name="windowTitle">The window title of the found RDP client window.</param>
+        /// <param name="client">The RDP client window.</param>
         /// <returns>True if an RDP client window is found; otherwise, false.</returns>
-        internal static bool FindRDPClientWindow(out string className, out string windowTitle)
+        internal static bool TryGetRDPClient(out Client client)
         {
             _found = false; // Reset the flag
             _ = NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero);
 
-            className = _rdpClientClassName;
-            windowTitle = _rdpClientWindowTitle;
+            client = new Client
+            {
+                ClassName = _rdpClientClassName,
+                WindowTitle = _rdpClientWindowTitle
+            };
 
             return _found;
         }
