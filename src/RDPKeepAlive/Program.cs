@@ -63,7 +63,7 @@ namespace RDPKeepAlive
                     if (!_found)
                     {
                         Console.WriteLine("No RDP client found. Exiting...");
-                        break;
+                        ExitGracefully();
                     }
 
                     if (previousValue)
@@ -154,48 +154,49 @@ namespace RDPKeepAlive
         {
             // Find the specific RDP window
             var windowHandle = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, _rdpClientClassName, _rdpClientWindowTitle);
-            if (windowHandle != IntPtr.Zero)
+            if (windowHandle == IntPtr.Zero)
             {
-                if (!TryGetMouseMovementParams(out var input))
-                {
-                    Console.WriteLine("ERROR: TryGetMouseMovementParams returned false!");
-                    Console.WriteLine(GetErrorMessage());
-                    return;
-                }
+                return;
+            }
+            if (!TryGetMouseMovementParams(out var input))
+            {
+                Console.WriteLine("ERROR: TryGetMouseMovementParams returned false!");
+                Console.WriteLine(GetErrorMessage());
+                return;
+            }
 
-                // Store the original foreground window to restore later
-                var originalForegroundWindow = NativeMethods.GetForegroundWindow();
-                var clientIsNotTopmost = originalForegroundWindow != windowHandle;
-                if (clientIsNotTopmost)
+            // Store the original foreground window to restore later
+            var originalForegroundWindow = NativeMethods.GetForegroundWindow();
+            var clientIsNotTopmost = originalForegroundWindow != windowHandle;
+            if (clientIsNotTopmost)
+            {
+                var originalWindowTitle = new StringBuilder(WindowTitleCapacity);
+                if (NativeMethods.GetWindowText(originalForegroundWindow, originalWindowTitle, WindowTitleCapacity) != 0 && _verbose)
                 {
-                    var originalWindowTitle = new StringBuilder(WindowTitleCapacity);
-                    if (NativeMethods.GetWindowText(originalForegroundWindow, originalWindowTitle, WindowTitleCapacity) != 0 && _verbose)
-                    {
-                        Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {originalWindowTitle}");
-                    }
-                    // Bring the RDP window to the foreground
-                    NativeMethods.SetForegroundWindow(windowHandle);
+                    Console.WriteLine($"{DateTime.Now:o} - Original foreground window: {originalWindowTitle}");
                 }
+                // Bring the RDP window to the foreground
+                NativeMethods.SetForegroundWindow(windowHandle);
+            }
 
-                // Send the mouse movement input
-                if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
-                {
-                    Console.WriteLine("ERROR: SendInput failed!");
-                    Console.WriteLine(GetErrorMessage());
-                }
-                else
-                {
-                    if (_verbose)
-                        Console.WriteLine($"{DateTime.Now:o} - Mouse movement sent successfully.");
-                }
+            // Send the mouse movement input
+            if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
+            {
+                Console.WriteLine("ERROR: SendInput failed!");
+                Console.WriteLine(GetErrorMessage());
+            }
+            else
+            {
+                if (_verbose)
+                    Console.WriteLine($"{DateTime.Now:o} - Mouse movement sent successfully.");
+            }
 
-                if (clientIsNotTopmost)
-                {
-                    // Restore the original foreground window
-                    NativeMethods.SetForegroundWindow(originalForegroundWindow);
-                    if (_verbose)
-                        Console.WriteLine($"{DateTime.Now:o} - Restored original foreground window.");
-                }
+            if (clientIsNotTopmost)
+            {
+                // Restore the original foreground window
+                NativeMethods.SetForegroundWindow(originalForegroundWindow);
+                if (_verbose)
+                    Console.WriteLine($"{DateTime.Now:o} - Restored original foreground window.");
             }
         }
         private static bool TryGetMouseMovementParams(out NativeMethods.INPUT inputParams)
