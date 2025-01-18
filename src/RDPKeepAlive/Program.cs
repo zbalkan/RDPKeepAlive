@@ -8,8 +8,6 @@ namespace RDPKeepAlive
     {
         private const string MutexName = "RDPKeepAliveMutex";
 
-        private static readonly string[] _verboseFlags = ["-v", "--verbose", "/v"];
-
         private static bool _verbose;
 
         public static void Main(string[] args)
@@ -21,7 +19,7 @@ namespace RDPKeepAlive
                 ExitGracefully();
             }
 
-            if (args.Length > 0 && _verboseFlags.Contains(args[0]))
+            if (args.Length > 0 && args[0].Equals("-v"))
             {
                 _verbose = true;
             }
@@ -66,6 +64,10 @@ namespace RDPKeepAlive
 
                         // Perform mouse movement simulation if RDP client exists
                         KeepAlive.Execute();
+
+                        if (_verbose)
+                            Console.WriteLine($"{DateTime.Now:o} - Mouse movement is sent.");
+
                     }
 
                     Thread.Sleep(1000); // Sleep for 1 second

@@ -10,10 +10,14 @@ namespace RDPKeepAlive
 
         private const int WindowTitleCapacity = 128;
 
+        private static readonly char[] _class = new char[ClassNameCapacity];
+
         private static readonly string[] _rdpClients = [
-            "TscShellContainerClass", // MSTSC.EXE
+                    "TscShellContainerClass", // MSTSC.EXE
             "WindowsForms10.Window.8.app.0.1d2098a_r8_ad1" // Sysinternals RDCMAN
             ];
+
+        private static readonly char[] _title = new char[WindowTitleCapacity];
 
         private static bool _clientIsNotTopmost;
 
@@ -26,7 +30,6 @@ namespace RDPKeepAlive
         private static string _rdpClientWindowTitle = string.Empty;
 
         private static IntPtr _windowInFront;
-
         /// <summary>
         ///     Executes the keep-alive process for the RDP client window. This method finds the
         ///     specific RDP window, prepares mouse movement parameters, takes a snapshot of the
@@ -93,11 +96,11 @@ namespace RDPKeepAlive
         private static bool EnumRDPWindowsProc(IntPtr hWnd, IntPtr lParam)
         {
             // Retrieve the class name of the window
-            if (TryGetWindowClass(hWnd, out var className) && TryGetWindowTitle(hWnd, out var windowTitle) && _rdpClients.Contains(className))
+            if (TryGetWindowClass(hWnd, out var className) && TryGetWindowTitle(hWnd, out var windowTitle) && IsRdpClientClass(className))
             {
                 _found = true;
-                _rdpClientClassName = className;
-                _rdpClientWindowTitle = windowTitle;
+                _rdpClientClassName = className.ToString();
+                _rdpClientWindowTitle = windowTitle.ToString();
                 return false; // Stop enumeration
             }
             return true;
@@ -114,6 +117,18 @@ namespace RDPKeepAlive
                 _ = NativeMethods.GetWindowThreadProcessId(next, out pidNext);
             }
             return next;
+        }
+
+        private static bool IsRdpClientClass(ReadOnlySpan<char> classNameSpan)
+        {
+            foreach (var client in _rdpClients)
+            {
+                if (classNameSpan.SequenceEqual(client.AsSpan()))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static void ProcessMouseMovement(nint clientWindow, NativeMethods.INPUT input)
@@ -198,31 +213,49 @@ namespace RDPKeepAlive
             return true;
         }
 
-        private static bool TryGetWindowClass(IntPtr hWnd, out string className)
+        private static bool TryGetWindowClass(IntPtr hWnd, out ReadOnlySpan<char> className)
         {
-            var name = new char[ClassNameCapacity];
-            if (NativeMethods.GetClassName(hWnd, name, ClassNameCapacity) == 0)
+            Array.Clear(_class, 0, ClassNameCapacity);
+
+            if (NativeMethods.GetClassName(hWnd, _class, ClassNameCapacity) == 0)
             {
-                className = string.Empty;
+                className = default;
                 return false;
             }
 
-            var trimmed = new string(name).TrimEnd('\0');
-            className = trimmed.Length > 0 ? trimmed : "[NoClass]";
+            var indexOfNull = Array.IndexOf(_class, char.MinValue);
+            if (indexOfNull != 0)
+            {
+                className = new ReadOnlySpan<char>(_class, 0, indexOfNull);
+            }
+            else
+            {
+                className = string.Empty;
+            }
+
             return true;
         }
 
-        private static bool TryGetWindowTitle(IntPtr hWnd, out string windowTitle)
+        private static bool TryGetWindowTitle(IntPtr hWnd, out ReadOnlySpan<char> windowTitle)
         {
-            var title = new char[WindowTitleCapacity];
-            if (NativeMethods.GetWindowText(hWnd, title, WindowTitleCapacity) == 0)
+            Array.Clear(_title, 0, WindowTitleCapacity);
+
+            if (NativeMethods.GetWindowText(hWnd, _title, WindowTitleCapacity) == 0)
             {
-                windowTitle = string.Empty;
+                windowTitle = default;
                 return false;
             }
 
-            var trimmed = new string(title).TrimEnd('\0');
-            windowTitle = trimmed.Length > 0 ? trimmed : "[NoTitle]";
+            var indexOfNull = Array.IndexOf(_title, char.MinValue);
+            if (indexOfNull != 0)
+            {
+                windowTitle = new ReadOnlySpan<char>(_title, 0, indexOfNull);
+            }
+            else
+            {
+                windowTitle = string.Empty;
+            }
+
             return true;
         }
     }
