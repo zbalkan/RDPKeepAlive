@@ -1,7 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace RDPKeepAlive
 {
@@ -29,29 +28,10 @@ namespace RDPKeepAlive
         private static IntPtr _windowInFront;
 
         /// <summary>
-        /// Finds the RDP client window by enumerating all top-level windows.
-        /// </summary>
-        /// <param name="client">The RDP client window.</param>
-        /// <returns>True if an RDP client window is found; otherwise, false.</returns>
-        internal static bool TryGetRDPClient(out Client client)
-        {
-            _found = false; // Reset the flag
-            _ = NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero);
-
-            client = new Client
-            {
-                ClassName = _rdpClientClassName,
-                WindowTitle = _rdpClientWindowTitle
-            };
-
-            return _found;
-        }
-
-        /// <summary>
-        /// Executes the keep-alive process for the RDP client window.
-        /// This method finds the specific RDP window, prepares mouse movement parameters,
-        /// takes a snapshot of the current window state, processes the mouse movement to keep the RDP session active,
-        /// and then restores the original window state.
+        ///     Executes the keep-alive process for the RDP client window. This method finds the
+        ///     specific RDP window, prepares mouse movement parameters, takes a snapshot of the
+        ///     current window state, processes the mouse movement to keep the RDP session active,
+        ///     and then restores the original window state.
         /// </summary>
         internal static void Execute()
         {
@@ -72,6 +52,29 @@ namespace RDPKeepAlive
             ProcessMouseMovement(clientWindow, input);
 
             RestoreSnapshot(clientWindow);
+        }
+
+        /// <summary>
+        ///     Finds the RDP client window by enumerating all top-level windows.
+        /// </summary>
+        /// <param name="client">
+        ///     The RDP client window.
+        /// </param>
+        /// <returns>
+        ///     True if an RDP client window is found; otherwise, false.
+        /// </returns>
+        internal static bool TryGetRDPClient(out Client client)
+        {
+            _found = false; // Reset the flag
+            _ = NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero);
+
+            client = new Client
+            {
+                ClassName = _rdpClientClassName,
+                WindowTitle = _rdpClientWindowTitle
+            };
+
+            return _found;
         }
 
         /// <summary>
@@ -197,7 +200,7 @@ namespace RDPKeepAlive
 
         private static bool TryGetWindowClass(IntPtr hWnd, out string className)
         {
-            var name = new char[ClassNameCapacity]; //StringBuilder(ClassNameCapacity);
+            var name = new char[ClassNameCapacity];
             if (NativeMethods.GetClassName(hWnd, name, ClassNameCapacity) == 0)
             {
                 className = string.Empty;
@@ -211,7 +214,7 @@ namespace RDPKeepAlive
 
         private static bool TryGetWindowTitle(IntPtr hWnd, out string windowTitle)
         {
-            var title = new char[WindowTitleCapacity]; //new StringBuilder(WindowTitleCapacity);
+            var title = new char[WindowTitleCapacity];
             if (NativeMethods.GetWindowText(hWnd, title, WindowTitleCapacity) == 0)
             {
                 windowTitle = string.Empty;
