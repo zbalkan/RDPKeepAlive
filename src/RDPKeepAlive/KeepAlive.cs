@@ -197,26 +197,29 @@ namespace RDPKeepAlive
 
         private static bool TryGetWindowClass(IntPtr hWnd, out string className)
         {
-            var name = new StringBuilder(ClassNameCapacity);
+            var name = new char[ClassNameCapacity]; //StringBuilder(ClassNameCapacity);
             if (NativeMethods.GetClassName(hWnd, name, ClassNameCapacity) == 0)
             {
                 className = string.Empty;
                 return false;
             }
-            className = name.Length > 0 ? name.ToString() : "[NoClass]";
+
+            var trimmed = new string(name).TrimEnd('\0');
+            className = trimmed.Length > 0 ? trimmed : "[NoClass]";
             return true;
         }
 
         private static bool TryGetWindowTitle(IntPtr hWnd, out string windowTitle)
         {
-            var title = new StringBuilder(WindowTitleCapacity);
+            var title = new char[WindowTitleCapacity]; //new StringBuilder(WindowTitleCapacity);
             if (NativeMethods.GetWindowText(hWnd, title, WindowTitleCapacity) == 0)
             {
                 windowTitle = string.Empty;
                 return false;
             }
 
-            windowTitle = title.Length > 0 ? title.ToString() : "[NoTitle]";
+            var trimmed = new string(title).TrimEnd('\0');
+            windowTitle = trimmed.Length > 0 ? trimmed : "[NoTitle]";
             return true;
         }
     }

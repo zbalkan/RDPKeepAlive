@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace RDPKeepAlive
 {
@@ -79,8 +78,8 @@ namespace RDPKeepAlive
         /// <returns>
         ///     The number of characters copied, not including the terminating null character.
         /// </returns>
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+        [LibraryImport("user32.dll", EntryPoint = "GetClassNameW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+        internal static partial int GetClassName(IntPtr hWnd, [Out] char[] lpClassName, int nMaxCount);
 
         /// <summary>
         ///     Retrieves the cursor's position, in screen coordinates.
@@ -152,8 +151,8 @@ namespace RDPKeepAlive
         /// <returns>
         ///     The length of the string copied, not including the terminating null character.
         /// </returns>
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
+        [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+        internal static partial int GetWindowText(IntPtr hWnd, [Out] char[] lpWindowText, int nMaxCount);
 
         /// <summary>
         ///     Retrieves the identifier of the thread that created the specified window and,
