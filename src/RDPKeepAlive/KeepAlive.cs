@@ -92,7 +92,7 @@ namespace RDPKeepAlive
             if (TryGetWindowClass(hWnd, out var className) && TryGetWindowTitle(hWnd, out var windowTitle) && IsRdpClientClass(className))
             {
                 _found = true;
-                _client = new Client(className.ToString(),windowTitle.ToString());
+                _client = new Client(className.ToString(), windowTitle.ToString());
 
                 return false; // Stop enumeration
             }
@@ -219,7 +219,7 @@ namespace RDPKeepAlive
             var indexOfNull = Array.IndexOf(_class, char.MinValue);
             if (indexOfNull != 0)
             {
-                className = new ReadOnlySpan<char>(_class, 0, indexOfNull);
+                className = _class.AsSpan(0, indexOfNull);
             }
             else
             {
@@ -242,7 +242,7 @@ namespace RDPKeepAlive
             var indexOfNull = Array.IndexOf(_title, char.MinValue);
             if (indexOfNull != 0)
             {
-                windowTitle = new ReadOnlySpan<char>(_title, 0, indexOfNull);
+                windowTitle = _title.AsSpan(0, indexOfNull);
             }
             else
             {
