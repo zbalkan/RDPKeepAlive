@@ -13,7 +13,7 @@ namespace RDPKeepAlive
         private static readonly char[] _class = new char[ClassNameCapacity];
 
         private static readonly string[] _rdpClients = [
-                    "TscShellContainerClass", // MSTSC.EXE
+            "TscShellContainerClass",                      // MSTSC.EXE
             "WindowsForms10.Window.8.app.0.1d2098a_r8_ad1" // Sysinternals RDCMAN
             ];
 
@@ -137,7 +137,7 @@ namespace RDPKeepAlive
             }
 
             // Send the mouse movement input
-            if (NativeMethods.SendInput(1, ref input, Marshal.SizeOf(typeof(NativeMethods.INPUT))) == 0)
+            if (NativeMethods.SendInput(1, ref input, 40) == 0) // Marshal.SizeOf(typeof(NativeMethods.INPUT)) == 40
             {
                 throw new KeepAliveException("Failed to send mouse movement input.", new Win32Exception(Marshal.GetLastWin32Error()));
             }
