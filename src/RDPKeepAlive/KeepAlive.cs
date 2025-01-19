@@ -19,16 +19,13 @@ namespace RDPKeepAlive
 
         private static readonly char[] _title = new char[WindowTitleCapacity];
 
+        private static Client _client;
+
         private static bool _clientIsNotTopmost;
 
         private static bool _found;
 
         private static IntPtr _originalForegroundWindow;
-
-        private static string _rdpClientClassName = string.Empty;
-
-        private static string _rdpClientWindowTitle = string.Empty;
-
         private static IntPtr _windowInFront;
         /// <summary>
         ///     Executes the keep-alive process for the RDP client window. This method finds the
@@ -39,7 +36,7 @@ namespace RDPKeepAlive
         internal static void Execute()
         {
             // Find the specific RDP window
-            var clientWindow = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, _rdpClientClassName, _rdpClientWindowTitle);
+            var clientWindow = NativeMethods.FindWindowExW(IntPtr.Zero, IntPtr.Zero, _client.ClassName, _client.WindowTitle);
             if (clientWindow == IntPtr.Zero)
             {
                 return;
@@ -71,11 +68,7 @@ namespace RDPKeepAlive
             _found = false; // Reset the flag
             _ = NativeMethods.EnumWindows(EnumRDPWindowsProc, IntPtr.Zero);
 
-            client = new Client
-            {
-                ClassName = _rdpClientClassName,
-                WindowTitle = _rdpClientWindowTitle
-            };
+            client = _client;
 
             return _found;
         }
@@ -99,8 +92,12 @@ namespace RDPKeepAlive
             if (TryGetWindowClass(hWnd, out var className) && TryGetWindowTitle(hWnd, out var windowTitle) && IsRdpClientClass(className))
             {
                 _found = true;
-                _rdpClientClassName = className.ToString();
-                _rdpClientWindowTitle = windowTitle.ToString();
+                _client = new Client
+                {
+                    ClassName = className.ToString(),
+                    WindowTitle = windowTitle.ToString()
+                };
+
                 return false; // Stop enumeration
             }
             return true;
