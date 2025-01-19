@@ -92,11 +92,7 @@ namespace RDPKeepAlive
             if (TryGetWindowClass(hWnd, out var className) && TryGetWindowTitle(hWnd, out var windowTitle) && IsRdpClientClass(className))
             {
                 _found = true;
-                _client = new Client
-                {
-                    ClassName = className.ToString(),
-                    WindowTitle = windowTitle.ToString()
-                };
+                _client = new Client(className.ToString(),windowTitle.ToString());
 
                 return false; // Stop enumeration
             }

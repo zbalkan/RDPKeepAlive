@@ -1,9 +1,15 @@
 ﻿namespace RDPKeepAlive
 {
-    internal struct Client
+    internal readonly struct Client
     {
-        public string ClassName;
+        public string ClassName { get; }
 
-        public string WindowTitle;
+        public string WindowTitle { get; }
+
+        public Client(string className, string windowTitle) : this()
+        {
+            ClassName = className;
+            WindowTitle = windowTitle;
+        }
     }
 }
