@@ -43,7 +43,8 @@ jobs:
     - name: Add to PATH
       shell: pwsh
       run: |
-        $env:PUBLISH_PATH = (Get-Item .\publish\).FullName.TrimEnd('\')
+        $env:PUBLISH_PATH = (Get-Item .\publish\).FullName.TrimEnd('\') -replace '\\','/'
+        Write-Output $env:PUBLISH_PATH
 
     # Upload: https://github.com/marketplace/actions/upload-a-build-artifact
     - name: Upload a Build Artifact
@@ -56,4 +57,4 @@ jobs:
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
-        files: $env:PUBLISH_PATH\*.exe
+        files: $env:PUBLISH_PATH/*.exe
