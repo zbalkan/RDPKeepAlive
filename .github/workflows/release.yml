@@ -1,0 +1,59 @@
+name: Release executable
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - "v*.*.*"
+
+jobs:
+
+  build:
+
+    strategy:
+      matrix:
+        configuration: [Release]
+
+    runs-on: windows-latest  # For a list of available runner types, refer to
+                             # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+
+    env:
+      Solution_Name: RDPKeepAlive.sln                           # Replace with your solution name, i.e. MyWpfApp.sln.
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # Publish the executable
+    - name: Publish using profile Self-contained.pubxml
+      run: dotnet publish .\src\RDPKeepAlive.sln -p:PublishProfile=Self-contained
+
+    # Remove PDB
+    - name: Remove Program database (PDB) files from release
+      run: rm .\publish\*.pdb
+
+    # Add file to path
+    - name: Add to PATH
+      shell: pwsh
+      run: |
+        $env:PUBLISH_PATH = (Get-Item .\publish\).FullName.TrimEnd('\')
+
+    # Upload: https://github.com/marketplace/actions/upload-a-build-artifact
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v4.6.0
+      with:
+        name: RDPKeepAlive.exe
+        path: .\publish\*.exe
+
+    # Release
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: $env:PUBLISH_PATH\*.exe
