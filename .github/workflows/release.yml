@@ -45,6 +45,7 @@ jobs:
       run: |
         $env:PUBLISH_PATH = (Get-Item .\publish\).FullName.TrimEnd('\') -replace '\\','/'
         Write-Output $env:PUBLISH_PATH
+        Get-ChildItem $env:PUBLISH_PATH
 
     # Upload: https://github.com/marketplace/actions/upload-a-build-artifact
     - name: Upload a Build Artifact
