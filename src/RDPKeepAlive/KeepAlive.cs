@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace RDPKeepAlive
@@ -103,21 +104,39 @@ namespace RDPKeepAlive
             return true;
         }
 
-        private static IntPtr GetWindowInFront(nint clientWindow, uint pidClient)
+        private static IntPtr GetWindowInFront(nint clientWindow)
         {
+            // Get the process ID of the RDP client window
+            _ = NativeMethods.GetWindowThreadProcessId(clientWindow, out var pidClient);
+
+            // Get the monitor handle of the RDP client window
+            var clientMonitor = Monitor.GetMonitorFromWindow(clientWindow);
+
             uint pidNext = 0;
             var next = clientWindow; // Start from client
-
-            var clientMonitor = Monitor.GetMonitorHandleFromWindow(clientWindow);
             var nextMonitor = clientMonitor; // Start from client
+
             while (pidNext == 0 || pidClient == pidNext || !clientMonitor.Equals(nextMonitor))
             {
                 next = NativeMethods.GetWindow(next, 3 /*GW_HWNDPREV*/);
 
                 _ = NativeMethods.GetWindowThreadProcessId(next, out pidNext);
 
-                nextMonitor = Monitor.GetMonitorHandleFromWindow(next);
+                nextMonitor = Monitor.GetMonitorFromWindow(next);
             }
+#if DEBUG
+            if(TryGetWindowTitle(next, out var windowTitle))
+            {
+                Debug.WriteLine($"Window in front: {windowTitle}");
+            }
+
+            Debug.WriteLine($"Current monitor: {nextMonitor}");
+            Debug.WriteLine($"All monitors ({Monitor.AllMonitors.Count}): ");
+            foreach (var monitor in Monitor.AllMonitors)
+            {
+                Debug.WriteLine(monitor);
+            }
+#endif
             return next;
         }
 
@@ -167,10 +186,9 @@ namespace RDPKeepAlive
             {
                 return;
             }
-            _ = NativeMethods.GetWindowThreadProcessId(clientWindow, out var pidClient);
 
             // Get the window in front of the RDP client
-            _windowInFront = GetWindowInFront(clientWindow, pidClient);
+            _windowInFront = GetWindowInFront(clientWindow);
         }
 
         private static bool TryGetMouseMovementParams(out NativeMethods.INPUT inputParams)

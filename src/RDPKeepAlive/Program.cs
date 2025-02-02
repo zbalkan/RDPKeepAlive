@@ -7,7 +7,7 @@ namespace RDPKeepAlive
     internal static class Program
     {
         private const string MutexName = "RDPKeepAliveMutex";
-        private const int Interval = 10;
+        private const int Interval = 60;
         private static bool _verbose;
 
         public static void Main(string[] args)
