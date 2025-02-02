@@ -7,9 +7,7 @@ namespace RDPKeepAlive
     internal static class Program
     {
         private const string MutexName = "RDPKeepAliveMutex";
-
-        private static readonly string[] _verboseFlags = ["-v", "--verbose", "/v"];
-
+        private const int Interval = 10;
         private static bool _verbose;
 
         public static void Main(string[] args)
@@ -21,7 +19,7 @@ namespace RDPKeepAlive
                 ExitGracefully();
             }
 
-            if (args.Length > 0 && _verboseFlags.Contains(args[0]))
+            if (args.Length > 0 && args[0].Equals("-v"))
             {
                 _verbose = true;
             }
@@ -45,7 +43,7 @@ namespace RDPKeepAlive
                 var previousValue = false;
 
                 // Check for RDP client windows every second
-                for (var i = 0; i < 60; i++)
+                for (var i = 0; i < Interval; i++)
                 {
                     var isFound = KeepAlive.TryGetRDPClient(out var client);
 
@@ -66,6 +64,9 @@ namespace RDPKeepAlive
 
                         // Perform mouse movement simulation if RDP client exists
                         KeepAlive.Execute();
+
+                        if (_verbose)
+                            Console.WriteLine($"{DateTime.Now:o} - Mouse movement is sent.");
                     }
 
                     Thread.Sleep(1000); // Sleep for 1 second

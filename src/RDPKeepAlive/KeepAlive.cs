@@ -106,12 +106,17 @@ namespace RDPKeepAlive
         private static IntPtr GetWindowInFront(nint clientWindow, uint pidClient)
         {
             uint pidNext = 0;
-            var next = clientWindow;
-            while (pidNext == 0 || pidClient == pidNext)
+            var next = clientWindow; // Start from client
+
+            var clientMonitor = Monitor.GetMonitorHandleFromWindow(clientWindow);
+            var nextMonitor = clientMonitor; // Start from client
+            while (pidNext == 0 || pidClient == pidNext || !clientMonitor.Equals(nextMonitor))
             {
                 next = NativeMethods.GetWindow(next, 3 /*GW_HWNDPREV*/);
 
                 _ = NativeMethods.GetWindowThreadProcessId(next, out pidNext);
+
+                nextMonitor = Monitor.GetMonitorHandleFromWindow(next);
             }
             return next;
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace RDPKeepAlive
 {
@@ -242,6 +243,16 @@ namespace RDPKeepAlive
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
 
+        [DllImport("user32.dll", ExactSpelling = true)]
+        [ResourceExposure(ResourceScope.None)]
+        internal static extern bool EnumDisplayMonitors(HandleRef hdc, IntPtr rcClip, Monitor.MonitorEnumProc lpfnEnum, IntPtr dwData);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        [ResourceExposure(ResourceScope.None)]
+        internal static extern bool GetMonitorInfo(HandleRef hMonitor, [In, Out] Monitor.MonitorInfoEx info);
+
+        [DllImport("User32.dll")]
+        internal static extern IntPtr MonitorFromWindow(IntPtr hWnd, MonitorDefaultTo dwFlags);
         #endregion Methods
 
         #region Data Structures
@@ -299,9 +310,9 @@ namespace RDPKeepAlive
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Roslynator", "RCS1135:Declare enum member with zero value (when enum has FlagsAttribute)", Justification = "Not defined in specs")]
         internal enum SetWindowPosFlags : uint
         {
-            NoMove = 0x0002,
-
             NoSize = 0x0001,
+
+            NoMove = 0x0002,
 
             NoActivate = 0x0010
         }
@@ -369,6 +380,13 @@ namespace RDPKeepAlive
             public int X;
 
             public int Y;
+        }
+
+        internal enum MonitorDefaultTo
+        {
+            MONITOR_DEFAULTTONULL = 0,
+            MONITOR_DEFAULTTOPRIMARY = 1,
+            MONITOR_DEFAULTTONEAREST = 2
         }
 
         #endregion Data Structures
